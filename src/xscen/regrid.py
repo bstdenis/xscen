@@ -129,8 +129,8 @@ def regrid_dataset(  # noqa: C901
             if os.path.isfile(weights_filename) and not (
                 ("reuse_weights" in kwargs) and (kwargs["reuse_weights"] is False)
             ):
-                kwargs["weights"] = weights_filename
-                kwargs["reuse_weights"] = True
+                regridder_kwargs["weights"] = weights_filename
+                regridder_kwargs["reuse_weights"] = True
 
             # Extract args that are to be given at call time.
             # output_chunks is only valid for xesmf >= 0.8, so don't add it be default to the call_kwargs
