@@ -1,5 +1,8 @@
+import os
+
 import numpy as np
 import pytest
+import xarray
 
 try:
     import xesmf as xe
@@ -70,6 +73,70 @@ class TestRegridDataset:
         )
 
         assert (tmp_path / "weights" / "weights_RegionEssai_regrid0patch.nc").is_file()
+        assert out.tas.attrs["grid_mapping"] == "rotated_pole"
+        assert out.rotated_pole.attrs == dsout.rotated_pole.attrs
+        assert "patch" in out.attrs["history"]
+        assert out.attrs["cat:processing_level"] == "regridded"
+        assert out.chunks["rlon"] == (5, 5)
+
+    def test_in_memory_grid_weights(self, tmp_path):
+        dsout = datablock_3d(
+            np.zeros((2, 10, 10)),
+            "tas",
+            "rlon",
+            -5,
+            "rlat",
+            -5,
+            1,
+            1,
+            "2000-01-01",
+            as_dataset=True,
+        )
+        dsout.attrs["cat:domain"] = "RegionEssai"
+
+        dsin = datablock_3d(
+            np.zeros((10, 6, 6)),
+            "tas",
+            "lon",
+            -142,
+            "lat",
+            0,
+            2,
+            2,
+            "2000-01-01",
+            as_dataset=True,
+        )
+        dsin = dsin.chunk({"lon": 3, "time": 1})
+
+        _ = regrid_dataset(
+            dsin,
+            dsout,
+            tmp_path / "weights",
+            regridder_kwargs={
+                "method": "patch",
+                "output_chunks": {"rlon": 5},
+                "unmapped_to_nan": True,
+            },
+        )
+
+        assert (tmp_path / "weights" / "weights_RegionEssai_regrid0patch.nc").is_file()
+
+        grid_weights = xarray.open_dataset(tmp_path / "weights" / "weights_RegionEssai_regrid0patch.nc")
+        os.remove(tmp_path / "weights" / "weights_RegionEssai_regrid0patch.nc")
+
+        out = regrid_dataset(
+            dsin,
+            dsout,
+            tmp_path / "weights",
+            regridder_kwargs={
+                "method": "patch",
+                "output_chunks": {"rlon": 5},
+                "unmapped_to_nan": True,
+                "weights": grid_weights,
+            },
+        )
+
+        assert not (tmp_path / "weights" / "weights_RegionEssai_regrid0patch.nc").is_file()
         assert out.tas.attrs["grid_mapping"] == "rotated_pole"
         assert out.rotated_pole.attrs == dsout.rotated_pole.attrs
         assert "patch" in out.attrs["history"]

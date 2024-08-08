@@ -116,23 +116,28 @@ def regrid_dataset(  # noqa: C901
             ds = out or ds
 
             kwargs = deepcopy(regridder_kwargs)
-            # if weights_location does no exist, create it
-            if not os.path.exists(weights_location):
-                os.makedirs(weights_location)
-            id = ds.attrs["cat:id"] if "cat:id" in ds.attrs else "weights"
-            # give unique name to weights file
-            weights_filename = os.path.join(
-                weights_location,
-                f"{id}_{domain}_regrid{i}"
-                f"{'_'.join(kwargs[k] for k in kwargs if isinstance(kwargs[k], str))}.nc",
-            )
 
             # Re-use existing weight file if possible
-            if os.path.isfile(weights_filename) and not (
-                ("reuse_weights" in kwargs) and (kwargs["reuse_weights"] is False)
-            ):
-                kwargs["weights"] = weights_filename
+            if "weights" in regridder_kwargs:
+                kwargs["weights"] = regridder_kwargs["weights"]
                 kwargs["reuse_weights"] = True
+                weights_filename = None
+            else:
+                # if weights_location does not exist, create it
+                if not os.path.exists(weights_location):
+                    os.makedirs(weights_location)
+                id = ds.attrs["cat:id"] if "cat:id" in ds.attrs else "weights"
+                # give unique name to weights file
+                weights_filename = os.path.join(
+                    weights_location,
+                    f"{id}_{domain}_regrid{i}"
+                    f"{'_'.join(kwargs[k] for k in kwargs if isinstance(kwargs[k], str))}.nc",
+                )
+                if os.path.isfile(weights_filename) and not (
+                    ("reuse_weights" in kwargs) and (kwargs["reuse_weights"] is False)
+                ):
+                    kwargs["weights"] = weights_filename
+                    kwargs["reuse_weights"] = True
 
             # Extract args that are to be given at call time.
             # output_chunks is only valid for xesmf >= 0.8, so don't add it be default to the call_kwargs
@@ -315,7 +320,7 @@ def _regridder(
         Incoming grid. The Dataset needs to have lat/lon coordinates.
     ds_grid : xr.Dataset
         Destination grid. The Dataset needs to have lat/lon coordinates.
-    filename : str or os.PathLike
+    filename : str or os.PathLike or None
         Path to the NetCDF file with weights information.
     method : str
         Interpolation method.
@@ -350,7 +355,7 @@ def _regridder(
         unmapped_to_nan=unmapped_to_nan,
         **kwargs,
     )
-    if ~os.path.isfile(filename):
+    if (filename is not None) and not os.path.isfile(filename):
         regridder.to_netcdf(filename)
 
     return regridder
