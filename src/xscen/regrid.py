@@ -217,6 +217,12 @@ def regrid_dataset(  # noqa: C901
             )
             out.attrs["history"] = history
 
+            # Memory leak issue when regridding over a large number of datasets with xESMF
+            # https://github.com/JiaweiZhuang/xESMF/issues/53
+            regridder.grid_in.destroy()
+            regridder.grid_out.destroy()
+            del regridder
+
     out = out.drop_vars("latitude_longitude", errors="ignore")
     # Attrs
     out.attrs["cat:processing_level"] = to_level
